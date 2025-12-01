@@ -13,6 +13,9 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAdd, availableExtr
   const [activeTab, setActiveTab] = useState<'ingredients' | 'sauces'>('ingredients');
   const [selectedExtras, setSelectedExtras] = useState<Extra[]>([]);
 
+  // Check if this product is an Offer to display the Day (stored in type)
+  const isOffer = product.section.toLowerCase().includes('oferta');
+
   // Helper to safely get image URL whether it's a string or a database file array
   const getImageUrl = (img: string | { url: string }[]) => {
     if (Array.isArray(img)) {
@@ -52,7 +55,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAdd, availableExtr
   const ingredientsList = availableExtras.filter(e => e.category === 'ingredient');
 
   return (
-    <div className="bg-slate-800 rounded-xl overflow-hidden shadow-lg border border-slate-700 mb-6 flex flex-col md:flex-row">
+    <div className={`bg-slate-800 rounded-xl overflow-hidden shadow-lg border mb-6 flex flex-col md:flex-row ${isOffer ? 'border-yellow-500/50 shadow-yellow-900/20' : 'border-slate-700'}`}>
       {/* Image */}
       <div className="h-48 md:h-auto md:w-1/3 relative bg-slate-700">
         <img 
@@ -66,13 +69,24 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAdd, availableExtr
         <div className="absolute top-2 right-2 bg-slate-900/80 text-cyan-400 text-xs font-bold px-2 py-1 rounded backdrop-blur-sm">
           {product.points} Pts
         </div>
+        {isOffer && (
+            <div className="absolute top-2 left-2 bg-yellow-600 text-white text-xs font-bold px-2 py-1 rounded shadow-lg animate-pulse">
+                OFERTA
+            </div>
+        )}
       </div>
 
       {/* Content */}
       <div className="p-4 flex-1 flex flex-col justify-between">
         <div>
-          <div className="flex justify-between items-start">
-            <h3 className="text-xl font-bold text-white mb-1">{product.name}</h3>
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            <h3 className="text-xl font-bold text-white">{product.name}</h3>
+            {/* Display Day/Type for Offers */}
+            {isOffer && (
+                <span className="bg-yellow-900/40 text-yellow-300 text-xs font-bold px-2 py-0.5 rounded border border-yellow-500/50 flex items-center gap-1">
+                    📅 {product.type}
+                </span>
+            )}
           </div>
           <p className="text-slate-400 text-sm mb-4 leading-relaxed line-clamp-2 md:line-clamp-none">
             {product.ingredients}
@@ -196,7 +210,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAdd, availableExtr
         <div className="pt-3 border-t border-slate-700/50">
           {/* Prices Separated Left to Right */}
           <div className="flex justify-between items-end mb-3">
-             <span className="text-xl font-bold text-cyan-400">{product.priceNormal.toFixed(2)}€</span>
+             <span className={`text-xl font-bold ${isOffer ? 'text-yellow-400' : 'text-cyan-400'}`}>{product.priceNormal.toFixed(2)}€</span>
              {product.priceXL && (
                <span className="text-sm font-semibold text-slate-400 bg-slate-700/30 px-2 py-1 rounded">XL: {product.priceXL.toFixed(2)}€</span>
              )}
@@ -224,7 +238,11 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAdd, availableExtr
             <div className="flex gap-2 flex-1 justify-end">
               <button 
                 onClick={() => handleAdd('Normal')}
-                className="flex-1 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold rounded-lg transition-colors border border-slate-600"
+                className={`flex-1 px-3 py-2 text-white text-xs font-semibold rounded-lg transition-colors border ${
+                    isOffer 
+                    ? 'bg-yellow-700 hover:bg-yellow-600 border-yellow-600' 
+                    : 'bg-slate-700 hover:bg-slate-600 border-slate-600'
+                }`}
               >
                 Añadir Normal
               </button>
