@@ -1,0 +1,7 @@
+{
+  "name": "Bocadito Digital",
+  "description": "Carta digital interactiva para restaurantes con asistente IA para recomendaciones y gestión de selección de platos.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
