@@ -198,8 +198,8 @@ export const fetchMenuData = async (): Promise<MenuResponse> => {
       const sectionLower = section.toLowerCase().trim();
       const type = row.field_3224510 || '';
       
-      // Filtros de exclusión explícitos
-      if (section === 'Ofertas' || section === 'Otros') return;
+      // Filtros de exclusión explícitos (Permitimos Ofertas ahora)
+      if (section === 'Otros') return;
 
       // Detectar si es un Extra (por sección o tipo)
       const isExtraSection = 
@@ -263,9 +263,11 @@ export const getCategoriesFromProducts = (products: Product[]): string[] => {
     'Entrantes', 'Entrante',
     'Camperos', 'Campero',
     'Bocadillos', 'Bocadillo',
-    'Roscas', 'Rosca',
     'Hamburguesas', 'Hamburguesa',
-    'Bebidas', 'Bebida'
+    'Roscas', 'Rosca',
+    'Sandwiches', 'Sandwich',
+    'Bebidas', 'Bebida',
+    'Ofertas', 'Oferta'
   ];
   
   const allSections = Array.from(new Set(products.map(p => p.section)));
@@ -273,8 +275,7 @@ export const getCategoriesFromProducts = (products: Product[]): string[] => {
   const filteredSections = allSections.filter(s => {
       if (!s) return false;
       const lower = s.toLowerCase();
-      return s !== 'Ofertas' && 
-             s !== 'Otros' &&
+      return s !== 'Otros' &&
              !lower.includes('extra') && 
              lower !== 'salsas' && 
              lower !== 'ingredientes';
