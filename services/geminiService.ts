@@ -38,42 +38,66 @@ const getClient = () => {
     return client;
 }
 
+// Helper to simulate user history since we don't have the orders table
+const getSimulatedUserHistory = (userName: string, userId: string): string => {
+    if (userName === "Invitado" || !userId) return "";
+    
+    // Simple mock logic: Even IDs like Meat, Odd IDs like Healthy food
+    const isEven = userId.charCodeAt(userId.length - 1) % 2 === 0;
+    
+    if (isEven) {
+        return `HISTORIAL DE ${userName}: Suele pedir Hamburguesas XL y Patatas Bravas. Le gusta la carne y los sabores intensos.`;
+    } else {
+        return `HISTORIAL DE ${userName}: Suele pedir Ensaladas y Sandwiches Vegetales. Prefiere opciones ligeras y saludables.`;
+    }
+}
+
 // Now accepts products AND extras as arguments to ensure data is fresh/auto-updated
 // Also accepts userName to personalize the chat
-export const createChatSession = (products: Product[], extras: Extra[], userName: string = "Cliente") => {
+export const createChatSession = (products: Product[], extras: Extra[], userName: string = "Invitado", userId: string = "") => {
   const ai = getClient();
   
   // Prepare the menu context dynamically based on the passed products
   const menuContext = products.map(p => 
-    `${p.name} (ID: ${p.id}, Section: ${p.section}): ${p.ingredients}. Precio: ${p.priceNormal}€${p.priceXL ? ` / XL: ${p.priceXL}€` : ''}.`
+    `- ${p.name} (${p.section}): ${p.ingredients}. Precio: ${p.priceNormal}€`
   ).join('\n');
 
-  const extrasContext = extras.map(e => `${e.name} (${e.price}€)`).join(', ');
+  const historyContext = getSimulatedUserHistory(userName, userId);
 
   const systemInstruction = `
-Eres "Bocadito", un asistente virtual experto y amable del restaurante Bocadito.
-Tu objetivo es ayudar al cliente (${userName}) a elegir qué comer y recomendar platos basándote en sus gustos si los menciona, o en los platos populares del menú actual.
+Eres el MAITRE VIRTUAL del restaurante "Bocadito". Tu trabajo no es solo tomar nota, sino ASESORAR para crear una experiencia gastronómica perfecta.
 
-**REGLAS DE ORO:**
-1. NO es un sistema de pedidos automáticos. El cliente hace una lista para enseñar al camarero.
-2. NUNCA respondas a insultos. Sé educado e ignora la hostilidad.
-3. PROTEGE la privacidad. Nunca reveles datos de otros usuarios.
-4. UPSELLING: Intenta subir el ticket medio discretamente. Si piden una hamburguesa, sugiere patatas o bebida.
-5. Si el usuario parece decidido por un plato, usa la herramienta "suggestDish" para mostrarle un botón de añadir.
+**CONTEXTO DEL USUARIO:**
+Nombre: ${userName}
+${historyContext ? `\n**INFORMACIÓN VALIOSA (ÚSALA):**\n${historyContext}\n` : '\n**ESTADO:** Cliente NO identificado (Invitado).\n'}
 
-**DATOS:**
-Usuario: ${userName}.
-Menú Actualizado (Base de Datos):
+**TUS INSTRUCCIONES DE COMPORTAMIENTO (CRÍTICO):**
+
+1. **SI EL USUARIO ES "INVITADO" (No hay historial):**
+   - TU PRIMERA PREGUNTA DEBE SER OBLIGATORIAMENTE: "¿Para cuántas personas es la mesa hoy?"
+   - Una vez te digan el número, RECOMIENDA CANTIDADES ADECUADAS.
+     * Regla general: 1 Entrante para compartir cada 2-3 personas + 1 Principal (Hamburguesa/Bocadillo) por persona.
+   - NO recomiendes platos sueltos sin saber cuántos son.
+
+2. **SI EL USUARIO ESTÁ REGISTRADO (Hay historial):**
+   - Saluda por su nombre.
+   - USA SU HISTORIAL: "Hola ${userName}, ¿te apetece repetir tu clásica hamburguesa o probamos algo nuevo hoy?"
+   - Intenta vender complementos que encajen con su perfil.
+
+3. **GESTIÓN DEL MENÚ:**
+   - Tienes la lista de productos abajo.
+   - Si piden "algo de beber", enumera las opciones.
+   - Si piden "algo para picar", sugiere los Entrantes.
+
+4. **HERRAMIENTA 'suggestDish':**
+   - Si el cliente dice "sí", "me apetece", "ponme eso" o confirma un plato, USA LA HERRAMIENTA INMEDIATAMENTE para que aparezca el botón en pantalla.
+
+**MENÚ DISPONIBLE:**
 ${menuContext}
-
-Extras disponibles (Salsas e Ingredientes): 
-${extrasContext}
-
-Si recomiendas algo y el usuario acepta, LLAMA A LA FUNCIÓN 'suggestDish' con el ID del producto y la variante (Normal/XL).
 `;
 
   return ai.chats.create({
-    model: 'gemini-3-pro-preview',
+    model: 'gemini-2.5-flash', // Updated to 2.5 Flash for better reliability and speed
     config: {
       systemInstruction: systemInstruction,
       tools: tools,

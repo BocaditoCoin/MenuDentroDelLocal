@@ -776,7 +776,13 @@ function App() {
         </div>
       )}
 
-      <Chatbot onAddProduct={addToCart} products={products} extras={extras} userName={user?.name} />
+      <Chatbot 
+        onAddProduct={addToCart} 
+        products={products} 
+        extras={extras} 
+        userName={user?.name} 
+        userId={user?.id}
+      />
     </div>
   );
 }

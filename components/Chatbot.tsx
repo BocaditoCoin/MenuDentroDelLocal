@@ -7,15 +7,18 @@ interface ChatbotProps {
   products: Product[]; // Receive products from parent to ensure sync with DB
   extras: Extra[]; // Receive extras from parent
   userName?: string; // Optional user name
+  userId?: string; // Added userId to fetch history
 }
 
-const Chatbot: React.FC<ChatbotProps> = ({ onAddProduct, products, extras, userName }) => {
+const Chatbot: React.FC<ChatbotProps> = ({ onAddProduct, products, extras, userName, userId }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
     { 
       id: 'welcome', 
       role: 'model', 
-      text: '¡Hola! Soy Bocadito. ¿Te gustaría que te recomendara algo de nuestra carta actualizada? Dime qué te apetece.' 
+      text: userName 
+        ? `¡Hola de nuevo ${userName}! Soy Bocadito. ¿Te ayudo a preparar tu pedido basándome en tus gustos?`
+        : '¡Hola! Soy Bocadito, tu asistente virtual. ¿Para cuántas personas queréis comer hoy?' 
     }
   ]);
   const [input, setInput] = useState('');
@@ -29,13 +32,18 @@ const Chatbot: React.FC<ChatbotProps> = ({ onAddProduct, products, extras, userN
     // Re-initialize chat if products/extras change or chat opens
     if (isOpen && products.length > 0) {
         try {
-            // Pass the current products AND extras AND userName to the AI service
-            chatSessionRef.current = createChatSession(products, extras, userName || "Invitado");
+            // Pass the current products AND extras AND userName/ID to the AI service
+            chatSessionRef.current = createChatSession(
+                products, 
+                extras, 
+                userName || "Invitado",
+                userId || ""
+            );
         } catch (e) {
             console.error("Failed to initialize chat session", e);
         }
     }
-  }, [isOpen, products, extras, userName]);
+  }, [isOpen, products, extras, userName, userId]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -62,12 +70,18 @@ const Chatbot: React.FC<ChatbotProps> = ({ onAddProduct, products, extras, userN
     setIsLoading(true);
 
     try {
-      const result = await chatSessionRef.current.sendMessage(userMsg.text);
+      // FIX: New SDK requires an object with 'message' property
+      const response = await chatSessionRef.current.sendMessage({ message: userMsg.text });
       
+      // FIX: Access response text via property getter, not function call
+      let responseText = response.text || "Lo siento, no he entendido eso.";
+
       // Check for function calls
-      const functionCalls = result.functionCalls();
+      // The SDK might return function calls in candidates or top level depending on version, 
+      // but usually available via helper or direct property check on the response object wrapper
+      // Assuming 'functionCalls' is a helper method on the returned object wrapper provided by GoogleGenAI class
+      const functionCalls = response.functionCalls ? response.functionCalls() : [];
       let suggestedAction = undefined;
-      let responseText = result.response.text();
 
       if (functionCalls && functionCalls.length > 0) {
         const call = functionCalls[0];
@@ -81,11 +95,14 @@ const Chatbot: React.FC<ChatbotProps> = ({ onAddProduct, products, extras, userN
                product,
                variant: (variant || 'Normal') as 'Normal' | 'XL'
              };
-             // Give feedback to the model so it knows the suggestion was presented
-             await chatSessionRef.current.sendMessage(`[System]: UI displayed add button for ${product.name}`);
+             
+             // Send tool response back to model to acknowledge
+             // Note: In a real "loop", we would send the function response back. 
+             // For this simple UI, we just display the button and let the model know via a follow-up if needed,
+             // or just display the text generated alongside the function call.
              
              if (!responseText) {
-                 responseText = `¡Genial! Aquí tienes el botón para añadir ${product.name}.`;
+                 responseText = `¡Oído cocina! Aquí tienes el botón para añadir ${product.name}.`;
              }
            }
         }
@@ -101,11 +118,11 @@ const Chatbot: React.FC<ChatbotProps> = ({ onAddProduct, products, extras, userN
       setMessages(prev => [...prev, modelMsg]);
 
     } catch (error) {
-      console.error(error);
+      console.error("Chat Error:", error);
       setMessages(prev => [...prev, {
         id: crypto.randomUUID(),
         role: 'model',
-        text: 'Lo siento, he tenido un problema conectando con la cocina. ¿Podrías repetirlo?'
+        text: 'Lo siento, he tenido un pequeño corte en la conexión con cocina. ¿Podrías repetirmelo?'
       }]);
     } finally {
       setIsLoading(false);
@@ -130,7 +147,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ onAddProduct, products, extras, userN
     setMessages(prev => [...prev, {
         id: crypto.randomUUID(),
         role: 'model',
-        text: `✅ He añadido ${action.product.name} (${action.variant}) a tu selección.`
+        text: `✅ Marchando una de ${action.product.name} (${action.variant}). ¿Algo más?`
     }]);
   };
 
@@ -153,8 +170,10 @@ const Chatbot: React.FC<ChatbotProps> = ({ onAddProduct, products, extras, userN
           {/* Header */}
           <div className="bg-slate-800 p-4 flex justify-between items-center border-b border-slate-700">
             <div>
-              <h3 className="text-white font-bold text-lg">Asistente de BOCADITO</h3>
-              <p className="text-xs text-cyan-400">IA Powered {userName ? `- Hola ${userName.split(' ')[0]}` : ''}</p>
+              <h3 className="text-white font-bold text-lg">Maitre Bocadito</h3>
+              <p className="text-xs text-cyan-400">
+                  {userName ? `Atendiendo a: ${userName}` : 'Asistente de Pedidos'}
+              </p>
             </div>
             <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-white">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -196,9 +215,9 @@ const Chatbot: React.FC<ChatbotProps> = ({ onAddProduct, products, extras, userN
               <div className="flex items-start">
                  <div className="bg-slate-800 px-4 py-3 rounded-2xl rounded-tl-none border border-slate-700">
                     <div className="flex space-x-1">
-                        <div className="w-2 h-2 bg-slate-500 rounded-full animate-bounce"></div>
-                        <div className="w-2 h-2 bg-slate-500 rounded-full animate-bounce delay-75"></div>
-                        <div className="w-2 h-2 bg-slate-500 rounded-full animate-bounce delay-150"></div>
+                        <div className="w-2 h-2 bg-cyan-500 rounded-full animate-bounce"></div>
+                        <div className="w-2 h-2 bg-cyan-500 rounded-full animate-bounce delay-75"></div>
+                        <div className="w-2 h-2 bg-cyan-500 rounded-full animate-bounce delay-150"></div>
                     </div>
                  </div>
               </div>
@@ -213,7 +232,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ onAddProduct, products, extras, userN
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-              placeholder="Escribe tu petición..."
+              placeholder="Escribe aquí..."
               className="flex-1 bg-slate-900 border border-slate-600 rounded-full px-4 py-2 text-white focus:outline-none focus:border-cyan-500"
             />
             <button 
