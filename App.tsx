@@ -3,7 +3,7 @@ import ProductCard from './components/ProductCard';
 import Chatbot from './components/Chatbot';
 import QRScanner from './components/QRScanner';
 import { CartItem, Product, Extra, User } from './types';
-import { fetchMenuData, getCategoriesFromProducts, loginUser, registerUser, updateUser } from './services/menuService';
+import { fetchMenuData, getCategoriesFromProducts, loginUser, registerUser, updateUser, addPointsToUser } from './services/menuService';
 
 function App() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -22,6 +22,7 @@ function App() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSelectionOpen, setIsSelectionOpen] = useState(false);
   const [isQRScannerOpen, setIsQRScannerOpen] = useState(false);
+  const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   
   // Layout State
   const [tableId, setTableId] = useState<string | null>(null);
@@ -77,6 +78,14 @@ function App() {
     }
   }, []);
 
+  // Notification Timer
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => setNotification(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
   // Clear errors when opening modal or switching modes
   useEffect(() => {
       setAuthError(null);
@@ -94,6 +103,7 @@ function App() {
         setIsProfileOpen(false);
         setLoginEmail('');
         setLoginPass('');
+        setNotification({ message: `¡Bienvenido, ${loggedUser.name}!`, type: 'success' });
     } catch (err: any) {
         setAuthError(err.message || "Error al iniciar sesión.");
     } finally {
@@ -118,7 +128,7 @@ function App() {
           setIsProfileOpen(false);
           setAuthMode('login'); 
           setRegisterData({ name: '', email: '', phone: '', address: '', password: '' });
-          // No alert needed, visual feedback is the modal closing and user logged in
+          setNotification({ message: "¡Cuenta creada con éxito!", type: 'success' });
       } catch (err: any) {
           setAuthError(err.message || "Error al registrarse.");
       } finally {
@@ -134,6 +144,7 @@ function App() {
               const updatedUser = await updateUser(user.id, editData);
               setUser(updatedUser);
               setIsEditingProfile(false);
+              setNotification({ message: "Perfil actualizado.", type: 'success' });
           } catch (err: any) {
               setAuthError(err.message || "Error al actualizar perfil.");
           } finally {
@@ -164,6 +175,7 @@ function App() {
               setUser(updatedUser);
               setIsChangingPassword(false);
               setPasswordForm({ new: '', confirm: '' });
+              setNotification({ message: "Contraseña cambiada.", type: 'success' });
           } catch (err: any) {
               setAuthError(err.message || "Error al cambiar la contraseña.");
           } finally {
@@ -178,6 +190,7 @@ function App() {
       setIsEditingProfile(false);
       setIsChangingPassword(false);
       setAuthError(null);
+      setNotification({ message: "Sesión cerrada.", type: 'success' });
   };
 
   // --- Cart Handlers ---
@@ -199,7 +212,70 @@ function App() {
     }));
   };
 
-  const handleScanSuccess = (decodedText: string) => {
+  // --- QR SCANNER LOGIC ---
+
+  const handleScanSuccess = async (decodedText: string) => {
+      setIsQRScannerOpen(false);
+
+      // Attempt to parse as JSON (Special Promo QR)
+      // Format: { "points": 50, "products": ["id1", "id2"], "action": "promo" }
+      try {
+          const qrData = JSON.parse(decodedText);
+          
+          if (typeof qrData === 'object' && qrData !== null) {
+              let message = "";
+              
+              // 1. Logic for Points
+              if (qrData.points && typeof qrData.points === 'number') {
+                  if (user) {
+                      try {
+                          const newTotal = await addPointsToUser(user.id, qrData.points);
+                          setUser(prev => prev ? { ...prev, points: newTotal } : null);
+                          message += `¡Has ganado ${qrData.points} puntos! `;
+                      } catch (e) {
+                          console.error("Error adding points", e);
+                          message += "Error sumando puntos (servidor). ";
+                      }
+                  } else {
+                      message += `¡QR de ${qrData.points} puntos detectado! Inicia sesión para guardarlos. `;
+                  }
+              }
+
+              // 2. Logic for Products
+              if (Array.isArray(qrData.products)) {
+                  let addedCount = 0;
+                  qrData.products.forEach((prodId: string) => {
+                      const productFound = products.find(p => p.id === prodId || p.id.endsWith(prodId));
+                      if (productFound) {
+                           const newItem: CartItem = {
+                              id: crypto.randomUUID(),
+                              productId: productFound.id,
+                              name: productFound.name,
+                              variant: 'Normal',
+                              price: productFound.priceNormal,
+                              quantity: 1,
+                              selectedExtras: []
+                           };
+                           addToCart(newItem);
+                           addedCount++;
+                      }
+                  });
+                  if (addedCount > 0) {
+                      message += `Se han añadido ${addedCount} platos a tu lista. `;
+                  }
+              }
+
+              if (message) {
+                  setNotification({ message, type: 'success' });
+                  return; // Stop here if it was a JSON promo
+              }
+          }
+      } catch (e) {
+          // Not JSON, continue to table logic
+          // console.log("Not JSON, treating as string");
+      }
+
+      // --- Default Logic: Table Identification ---
       let scannedTableId = decodedText;
       try {
           if (decodedText.startsWith('http')) {
@@ -208,10 +284,10 @@ function App() {
               if (tId) scannedTableId = tId;
           } 
       } catch (e) {
-          console.log("Not a URL, using raw text");
+          // Raw text
       }
       setTableId(scannedTableId);
-      setIsQRScannerOpen(false);
+      setNotification({ message: `¡Mesa ${scannedTableId} identificada!`, type: 'success' });
       window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -230,6 +306,14 @@ function App() {
   return (
     <div className="min-h-screen pb-24 relative bg-slate-900">
       
+      {/* Toast Notification */}
+      {notification && (
+          <div className={`fixed top-20 left-1/2 transform -translate-x-1/2 z-50 px-6 py-3 rounded-full shadow-2xl flex items-center gap-2 animate-bounceIn ${notification.type === 'success' ? 'bg-cyan-600 text-white' : 'bg-red-600 text-white'}`}>
+              <span className="text-xl">{notification.type === 'success' ? '🎉' : '⚠️'}</span>
+              <span className="font-bold text-sm">{notification.message}</span>
+          </div>
+      )}
+
       {/* Navbar */}
       <nav className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 px-4 py-3 flex justify-between items-center shadow-lg">
         <div className="flex flex-col">
@@ -251,7 +335,7 @@ function App() {
           <button 
             onClick={() => setIsQRScannerOpen(true)} 
             className="text-cyan-400 hover:text-cyan-300 transition-colors p-2 bg-cyan-900/10 rounded-lg hover:bg-cyan-900/20"
-            title="Escanear Mesa"
+            title="Escanear Mesa o Promo"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />

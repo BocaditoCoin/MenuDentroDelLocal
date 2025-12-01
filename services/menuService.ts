@@ -64,7 +64,6 @@ export const loginUser = async (email: string, password: string): Promise<User> 
         const userRow = data.results[0];
         
         // Verificar contraseña (field_3224275)
-        // Nota: En un entorno real idealmente se usaría hash, pero seguimos la estructura actual.
         if (userRow.field_3224275 !== password) {
             throw new Error("La contraseña es incorrecta.");
         }
@@ -76,7 +75,7 @@ export const loginUser = async (email: string, password: string): Promise<User> 
             phone: userRow.field_3224268 || '',
             address: userRow.field_3224273 || '',
             points: parseInt(userRow.field_3224318) || 0,
-            password: userRow.field_3224275 // Guardamos la contraseña en sesión para validaciones de cambio
+            password: userRow.field_3224275
         };
     } catch (error: any) {
         throw error;
@@ -135,7 +134,8 @@ export const updateUser = async (userId: string, data: Partial<User>): Promise<U
     if (data.phone !== undefined) body["field_3224268"] = data.phone;
     if (data.address !== undefined) body["field_3224273"] = data.address;
     if (data.password !== undefined) body["field_3224275"] = data.password;
-    // No permitimos actualizar email o puntos directamente desde el perfil por seguridad básica aquí
+    
+    // Nota: points no se actualizan aquí directamente, usar addPointsToUser
 
     const response = await fetch(updateUrl, {
         method: 'PATCH',
@@ -157,6 +157,33 @@ export const updateUser = async (userId: string, data: Partial<User>): Promise<U
         points: parseInt(userRow.field_3224318) || 0,
         password: userRow.field_3224275
     };
+};
+
+export const addPointsToUser = async (userId: string, pointsToAdd: number): Promise<number> => {
+    // 1. Obtener usuario actual para saber puntos base
+    const getUrl = `${BASE_URL}${TABLE_CLIENTES_ID}/${userId}/?user_field_names=false`;
+    const getResponse = await fetch(getUrl, { headers: { Authorization: `Token ${BASEROW_TOKEN}` } });
+    const userData = await handleResponse(getResponse, "Error al obtener datos del usuario.");
+    
+    const currentPoints = parseInt(userData.field_3224318) || 0;
+    const newTotal = currentPoints + pointsToAdd;
+
+    // 2. Actualizar puntos
+    const updateUrl = `${BASE_URL}${TABLE_CLIENTES_ID}/${userId}/?user_field_names=false`;
+    const body = { "field_3224318": newTotal };
+
+    const updateResponse = await fetch(updateUrl, {
+        method: 'PATCH',
+        headers: {
+            'Authorization': `Token ${BASEROW_TOKEN}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+    });
+
+    await handleResponse(updateResponse, "Error al actualizar los puntos.");
+    
+    return newTotal;
 };
 
 
@@ -198,7 +225,7 @@ export const fetchMenuData = async (): Promise<MenuResponse> => {
       const sectionLower = section.toLowerCase().trim();
       const type = row.field_3224510 || '';
       
-      // Filtros de exclusión explícitos (Permitimos Ofertas ahora)
+      // Filtros de exclusión explícitos
       if (section === 'Otros') return;
 
       // Detectar si es un Extra (por sección o tipo)

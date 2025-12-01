@@ -22,7 +22,10 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onScanFailure, onC
             fps: 10, 
             qrbox: { width: 250, height: 250 },
             aspectRatio: 1.0,
-            rememberLastUsedCamera: true
+            rememberLastUsedCamera: true,
+            videoConstraints: {
+                facingMode: "environment" // Force rear camera on mobile
+            }
         };
         
         const html5QrcodeScanner = new Html5QrcodeScanner(
@@ -36,9 +39,6 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onScanFailure, onC
         html5QrcodeScanner.render(
             (decodedText: string) => {
                 onScanSuccess(decodedText);
-                // We don't automatically clear here to allow multiple scans if needed, 
-                // but usually the parent closes the modal.
-                // If parent closes modal, the cleanup function will run.
             }, 
             (error: any) => {
                 if (onScanFailure) onScanFailure(error);
@@ -59,7 +59,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onScanFailure, onC
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 backdrop-blur-sm p-4 animate-fadeIn">
       <div className="w-full max-w-md bg-slate-900 rounded-2xl border border-slate-700 overflow-hidden flex flex-col relative shadow-2xl">
         <div className="p-4 border-b border-slate-700 flex justify-between items-center bg-slate-800">
-            <h3 className="text-white font-bold text-lg">Escanear Código de Mesa</h3>
+            <h3 className="text-white font-bold text-lg">Escanear Código QR</h3>
             <button onClick={onClose} className="text-slate-400 hover:text-white p-2 rounded-full hover:bg-slate-700 transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -67,11 +67,21 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onScanFailure, onC
             </button>
         </div>
         
-        <div className="p-4 bg-black flex flex-col items-center justify-center min-h-[300px]">
+        <div className="p-4 bg-black flex flex-col items-center justify-center min-h-[350px]">
+             {/* Container for the library */}
              <div id="reader" className="w-full h-auto text-white"></div>
-             <p className="text-center text-slate-400 text-sm mt-4 px-4">
-                 Apunta la cámara al código QR ubicado en tu mesa para cargar el menú.
-             </p>
+             
+             <div className="mt-4 px-4 text-center space-y-2">
+                 <p className="text-cyan-400 font-bold text-sm">
+                     📷 Enfoca el código con tu cámara
+                 </p>
+                 <p className="text-slate-400 text-xs">
+                     Sirve para identificar tu mesa, añadir platos automáticos o sumar puntos de recompensa.
+                 </p>
+                 <p className="text-slate-500 text-[10px] italic">
+                     Si el navegador solicita permisos, por favor acepta para continuar.
+                 </p>
+             </div>
         </div>
       </div>
     </div>
