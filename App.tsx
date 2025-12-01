@@ -307,14 +307,14 @@ function App() {
           </div>
         ) : (
           /* Categories Accordion */
-          <div className="space-y-4">
+          <div className="space-y-2">
             {categories.map(category => (
               <div key={category} className="bg-slate-800/40 rounded-xl overflow-hidden border border-slate-700/50 backdrop-blur-sm">
                 <button
                   onClick={() => setActiveCategory(activeCategory === category ? null : category)}
-                  className={`w-full px-6 py-4 flex justify-between items-center text-left transition-all ${activeCategory === category ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60 text-cyan-50'}`}
+                  className={`w-full px-4 py-3 flex justify-between items-center text-left transition-all ${activeCategory === category ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60 text-cyan-50'}`}
                 >
-                  <span className="text-lg font-bold">{category}</span>
+                  <span className="text-base font-bold">{category}</span>
                   <svg 
                       xmlns="http://www.w3.org/2000/svg" 
                       className={`h-5 w-5 text-cyan-500 transform transition-transform duration-300 ${activeCategory === category ? 'rotate-180' : ''}`} 
