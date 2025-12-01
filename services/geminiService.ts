@@ -32,7 +32,8 @@ let client: GoogleGenAI | null = null;
 
 const getClient = () => {
     if (!client) {
-        client = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        // API Key integrada directamente para despliegue inmediato
+        client = new GoogleGenAI({ apiKey: "AIzaSyDYKBhwcg41tCa8Xiu0kwWYIaBY-FYAMRg" });
     }
     return client;
 }
