@@ -32,8 +32,8 @@ let client: GoogleGenAI | null = null;
 
 const getClient = () => {
     if (!client) {
-        // API Key integrada directamente para despliegue inmediato
-        client = new GoogleGenAI({ apiKey: "AIzaSyDYKBhwcg41tCa8Xiu0kwWYIaBY-FYAMRg" });
+        // API Key must be obtained exclusively from process.env.API_KEY
+        client = new GoogleGenAI({ apiKey: process.env.API_KEY });
     }
     return client;
 }
@@ -97,7 +97,7 @@ ${menuContext}
 `;
 
   return ai.chats.create({
-    model: 'gemini-2.5-flash', // Updated to 2.5 Flash for better reliability and speed
+    model: 'gemini-2.5-flash', 
     config: {
       systemInstruction: systemInstruction,
       tools: tools,

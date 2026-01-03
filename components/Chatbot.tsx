@@ -77,10 +77,8 @@ const Chatbot: React.FC<ChatbotProps> = ({ onAddProduct, products, extras, userN
       let responseText = response.text || "Lo siento, no he entendido eso.";
 
       // Check for function calls
-      // The SDK might return function calls in candidates or top level depending on version, 
-      // but usually available via helper or direct property check on the response object wrapper
-      // Assuming 'functionCalls' is a helper method on the returned object wrapper provided by GoogleGenAI class
-      const functionCalls = response.functionCalls ? response.functionCalls() : [];
+      // FIX: Access functionCalls as a property, not a method
+      const functionCalls = response.functionCalls || [];
       let suggestedAction = undefined;
 
       if (functionCalls && functionCalls.length > 0) {
