@@ -11,97 +11,142 @@ declare const Html5Qrcode: any;
 
 const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onScanFailure, onClose }) => {
   const scannerRef = useRef<any>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [isScanning, setIsScanning] = useState(true);
+  const [isScanning, setIsScanning] = useState(true); // Estado visual de carga
+  const [isProcessingFile, setIsProcessingFile] = useState(false);
   const [permissionGranted, setPermissionGranted] = useState(false);
+  const [manualMode, setManualMode] = useState(false); // Si falla la cámara, pasamos a modo manual
 
   const startScanner = async () => {
     setIsScanning(true);
     setErrorMsg(null);
+    setManualMode(false);
 
     const elementId = "reader";
     const readerElement = document.getElementById(elementId);
     
-    // Fix: Cast window to any to access Html5Qrcode property
+    // Check global library
     if (!readerElement || !(window as any).Html5Qrcode) {
-        setErrorMsg("Librería de cámara no cargada o error de DOM.");
+        setErrorMsg("Librería de escaneo no cargada.");
+        setManualMode(true);
+        setIsScanning(false);
         return;
     }
 
     try {
-        // Limpieza previa si existe
+        // Limpiar instancia previa si existe
         if (scannerRef.current) {
             try {
                 await scannerRef.current.stop();
                 scannerRef.current.clear();
             } catch (e) {
-                // Ignorar error de stop si no estaba corriendo
+                // Ignorar error si no estaba corriendo
             }
         }
 
         const html5QrCode = new Html5Qrcode(elementId);
         scannerRef.current = html5QrCode;
 
-        // Configuración más permisiva para evitar errores de hardware
         const config = { 
             fps: 10, 
             qrbox: { width: 250, height: 250 },
             aspectRatio: 1.0
         };
         
-        // Intentar iniciar
+        // Intentar iniciar cámara trasera
         await html5QrCode.start(
             { facingMode: "environment" }, 
             config,
             (decodedText: string) => {
-                if (scannerRef.current) {
-                    scannerRef.current.pause(); 
-                }
-                onScanSuccess(decodedText);
+                handleSuccess(decodedText);
             },
             (errorMessage: any) => {
-                // Ignorar errores de "no QR found" en cada frame
+                // Errores de frame (normales mientras busca)
             }
         );
         
         setPermissionGranted(true);
-        setIsScanning(true);
+        setIsScanning(false); // Ya inició, quitamos loader
 
     } catch (err: any) {
         console.error("Error iniciando cámara:", err);
         setIsScanning(false);
+        setManualMode(true); // Activar modo manual/archivo automáticamente
         
-        let msg = "No se pudo acceder a la cámara.";
+        let msg = "No se pudo acceder a la cámara automáticamente.";
+        // Mensajes amigables pero informativos
         if (err?.name === "NotAllowedError" || err?.toString().includes("Permission")) {
-            msg = "Permiso denegado. Revisa la configuración del navegador.";
-        } else if (err?.name === "NotFoundError" || err?.toString().includes("NotFound")) {
-            msg = "No se detectó ninguna cámara.";
-        } else if (err?.name === "NotReadableError") {
-            msg = "La cámara está siendo usada por otra aplicación o hay un error de hardware.";
+            msg = "El navegador bloqueó el acceso a la cámara.";
+        } else if (err?.name === "NotFoundError") {
+            msg = "No se encontró una cámara en este dispositivo.";
         } else if (err?.toString().includes("OverconstrainedError")) {
-            msg = "La configuración de cámara no es compatible con este dispositivo.";
+            msg = "Tu cámara no es compatible con el modo automático.";
+        } else if (window.location.protocol !== 'https:') {
+            msg = "Por seguridad, la cámara requiere una conexión HTTPS.";
         }
         
         setErrorMsg(msg);
     }
   };
 
+  const handleSuccess = (decodedText: string) => {
+      // Pausar y limpiar
+      if (scannerRef.current) {
+          try {
+            scannerRef.current.pause();
+            scannerRef.current.clear(); 
+          } catch(e) {}
+      }
+      onScanSuccess(decodedText);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!e.target.files || e.target.files.length === 0) return;
+
+      const file = e.target.files[0];
+      setIsProcessingFile(true);
+      setErrorMsg(null);
+
+      try {
+          // Si la instancia no existe, crearla (para modo solo archivo)
+          if (!scannerRef.current) {
+              const html5QrCode = new Html5Qrcode("reader");
+              scannerRef.current = html5QrCode;
+          }
+
+          // Escanear el archivo
+          const result = await scannerRef.current.scanFile(file, true);
+          handleSuccess(result);
+      } catch (err) {
+          console.error("Error leyendo archivo:", err);
+          setErrorMsg("No se detectó ningún código QR en la imagen seleccionada. Intenta que el QR esté centrado y bien iluminado.");
+          setIsProcessingFile(false);
+      }
+  };
+
+  const triggerFileInput = () => {
+      fileInputRef.current?.click();
+  };
+
   useEffect(() => {
-    // Retraso intencional para permitir renderizado del DOM y animaciones
+    // Intentar iniciar automáticamente al montar
     const timer = setTimeout(() => {
         startScanner();
-    }, 300);
+    }, 500);
 
     return () => {
         clearTimeout(timer);
         if (scannerRef.current) {
-            scannerRef.current.stop().then(() => {
-                try {
-                   scannerRef.current.clear();
-                } catch(e) { console.log(e); }
-            }).catch((err: any) => {
-                console.warn("Error stopping scanner on unmount", err);
-            });
+             // Intentar cerrar recursos al desmontar
+            try {
+                if (scannerRef.current.isScanning) {
+                     scannerRef.current.stop().then(() => scannerRef.current.clear());
+                } else {
+                    scannerRef.current.clear();
+                }
+            } catch (e) { console.log(e); }
         }
     };
   }, []); 
@@ -109,6 +154,8 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onScanFailure, onC
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 backdrop-blur-sm p-4 animate-fadeIn">
       <div className="w-full max-w-md bg-slate-900 rounded-2xl border border-slate-700 overflow-hidden flex flex-col relative shadow-2xl">
+        
+        {/* Header */}
         <div className="p-4 border-b border-slate-700 flex justify-between items-center bg-slate-800">
             <h3 className="text-white font-bold text-lg">Escanear Código QR</h3>
             <button onClick={onClose} className="text-slate-400 hover:text-white p-2 rounded-full hover:bg-slate-700 transition-colors">
@@ -118,76 +165,101 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScanSuccess, onScanFailure, onC
             </button>
         </div>
         
-        <div className="relative bg-black flex flex-col items-center justify-center min-h-[350px] w-full overflow-hidden">
+        {/* Main Content Area */}
+        <div className="relative bg-black flex flex-col items-center justify-center min-h-[400px] w-full overflow-hidden">
              
-             {/* Contenedor del video: Importante darle tamaño explícito o relativo */}
-             <div id="reader" className="w-full h-full min-h-[350px]"></div>
+             {/* Hidden Input for File Upload */}
+             <input 
+                type="file" 
+                ref={fileInputRef} 
+                accept="image/*" 
+                className="hidden" 
+                onChange={handleFileUpload}
+             />
 
-             {/* Loader */}
-             {isScanning && !permissionGranted && !errorMsg && (
-                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-10">
-                     <div className="w-10 h-10 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mb-3"></div>
-                     <p className="text-cyan-400 text-sm font-semibold">Iniciando cámara...</p>
+             {/* Video Container (Reused for file preview internally by library, or empty) */}
+             <div id="reader" className={`${manualMode ? 'hidden' : 'block'} w-full h-full min-h-[350px]`}></div>
+
+             {/* LOADING SPINNER (Initial or File Processing) */}
+             {(isScanning || isProcessingFile) && (
+                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 z-30">
+                     <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                     <p className="text-cyan-400 font-semibold animate-pulse">
+                         {isProcessingFile ? "Analizando imagen..." : "Iniciando cámara..."}
+                     </p>
                  </div>
              )}
 
-             {/* Error & Retry UI */}
-             {errorMsg && (
-                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 z-20 p-6 text-center">
-                     <div className="w-16 h-16 bg-red-900/30 rounded-full flex items-center justify-center mb-4">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+             {/* MANUAL MODE / ERROR STATE UI */}
+             {manualMode && !isProcessingFile && (
+                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 z-20 p-6 text-center animate-fadeIn">
+                     
+                     <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center mb-4 border border-slate-700">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
                      </div>
-                     <p className="text-white font-bold text-lg mb-2">Error de Acceso</p>
-                     <p className="text-slate-400 text-sm mb-6 max-w-xs mx-auto">{errorMsg}</p>
+
+                     <h4 className="text-white font-bold text-xl mb-2">Problemas con la cámara</h4>
+                     <p className="text-slate-400 text-sm mb-6 max-w-xs">
+                         {errorMsg || "No pudimos iniciar el escáner automático. Es posible que tu móvil o navegador no sea compatible."}
+                     </p>
                      
-                     <div className="flex gap-3 w-full justify-center">
-                        <button onClick={onClose} className="px-5 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-white text-sm font-medium transition-colors">
-                            Cancelar
+                     <div className="space-y-3 w-full max-w-xs">
+                        <button 
+                            onClick={triggerFileInput} 
+                            className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-cyan-900/20 flex items-center justify-center gap-2 transition-transform active:scale-95"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                            </svg>
+                            Subir Foto o Tomar Foto
                         </button>
-                        <button onClick={() => startScanner()} className="px-5 py-2.5 bg-cyan-600 hover:bg-cyan-500 rounded-lg text-white text-sm font-bold transition-colors shadow-lg shadow-cyan-900/20">
-                            Reintentar
+
+                        <button 
+                            onClick={startScanner} 
+                            className="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium py-3 px-4 rounded-xl border border-slate-700 transition-colors text-sm"
+                        >
+                            Reintentar Automático
                         </button>
                      </div>
                  </div>
              )}
              
-             {/* Overlay visual de escaneo (solo si funciona) */}
-             {permissionGranted && !errorMsg && (
-                <div className="absolute inset-0 pointer-events-none border-[40px] border-black/50 z-10">
-                    <div className="w-full h-full border-2 border-cyan-400/50 relative">
-                        <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-cyan-400 -mt-1 -ml-1"></div>
-                        <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-cyan-400 -mt-1 -mr-1"></div>
-                        <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-cyan-400 -mb-1 -ml-1"></div>
-                        <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-cyan-400 -mb-1 -mr-1"></div>
-                        
-                        {/* Línea de escaneo animada */}
-                        <div className="absolute top-0 left-0 w-full h-0.5 bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.8)] animate-scan"></div>
+             {/* OVERLAY for Successful Live Feed */}
+             {permissionGranted && !manualMode && !isProcessingFile && (
+                <div className="absolute inset-0 pointer-events-none z-10 flex flex-col justify-between">
+                    <div className="bg-black/50 h-16 w-full backdrop-blur-sm"></div>
+                    <div className="flex-1 flex w-full">
+                        <div className="bg-black/50 w-8 h-full backdrop-blur-sm"></div>
+                        <div className="flex-1 border-2 border-cyan-400/70 relative">
+                             {/* Corner accents */}
+                            <div className="absolute top-0 left-0 w-4 h-4 border-t-4 border-l-4 border-cyan-400"></div>
+                            <div className="absolute top-0 right-0 w-4 h-4 border-t-4 border-r-4 border-cyan-400"></div>
+                            <div className="absolute bottom-0 left-0 w-4 h-4 border-b-4 border-l-4 border-cyan-400"></div>
+                            <div className="absolute bottom-0 right-0 w-4 h-4 border-b-4 border-r-4 border-cyan-400"></div>
+                            <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-red-500/50 animate-pulse"></div>
+                        </div>
+                        <div className="bg-black/50 w-8 h-full backdrop-blur-sm"></div>
+                    </div>
+                    <div className="bg-black/50 h-24 w-full backdrop-blur-sm flex items-center justify-center pointer-events-auto">
+                         <button 
+                             onClick={triggerFileInput}
+                             className="text-white text-xs flex flex-col items-center gap-1 opacity-80 hover:opacity-100 transition-opacity"
+                         >
+                             <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center border border-slate-500">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                             </div>
+                             Subir Imagen
+                         </button>
                     </div>
                 </div>
              )}
         </div>
-        
-        {/* Footer */}
-        <div className="p-3 bg-slate-800 border-t border-slate-700 text-center">
-             <p className="text-slate-400 text-xs">
-                 Coloca el código QR dentro del marco
-             </p>
-        </div>
       </div>
-      
-      <style>{`
-        @keyframes scan {
-            0% { top: 0; opacity: 0; }
-            10% { opacity: 1; }
-            90% { opacity: 1; }
-            100% { top: 100%; opacity: 0; }
-        }
-        .animate-scan {
-            animation: scan 2.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-        }
-      `}</style>
     </div>
   );
 };
