@@ -16,6 +16,9 @@ function App() {
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
+  // New state to store points from QR while user logs in
+  const [pendingPoints, setPendingPoints] = useState<number | null>(null);
+
   const [cart, setCart] = useState<CartItem[]>([]);
   
   // Modals
@@ -91,6 +94,23 @@ function App() {
       setAuthError(null);
   }, [isProfileOpen, authMode]);
 
+  // --- HELPER: Process Pending Points ---
+  const processPendingPoints = async (userId: string, currentPoints: number) => {
+      if (pendingPoints !== null) {
+          try {
+              const newTotal = await addPointsToUser(userId, pendingPoints);
+              setNotification({ message: `¡Has reclamado tus ${pendingPoints} puntos con éxito!`, type: 'success' });
+              setPendingPoints(null); // Clear pending
+              return newTotal;
+          } catch (e) {
+              console.error("Error claiming pending points", e);
+              setNotification({ message: "Error al sumar los puntos pendientes.", type: 'error' });
+              return currentPoints;
+          }
+      }
+      return currentPoints;
+  };
+
   // --- AUTH Handlers ---
 
   const handleLogin = async () => {
@@ -98,12 +118,19 @@ function App() {
     setAuthLoading(true);
     try {
         if (!loginEmail || !loginPass) throw new Error("Por favor, introduce email y contraseña.");
-        const loggedUser = await loginUser(loginEmail, loginPass);
+        let loggedUser = await loginUser(loginEmail, loginPass);
+        
+        // Check for pending points from QR
+        if (pendingPoints !== null) {
+            const updatedPoints = await processPendingPoints(loggedUser.id, loggedUser.points);
+            loggedUser = { ...loggedUser, points: updatedPoints };
+        }
+
         setUser(loggedUser);
         setIsProfileOpen(false);
         setLoginEmail('');
         setLoginPass('');
-        setNotification({ message: `¡Bienvenido, ${loggedUser.name}!`, type: 'success' });
+        if (!pendingPoints) setNotification({ message: `¡Bienvenido, ${loggedUser.name}!`, type: 'success' });
     } catch (err: any) {
         setAuthError(err.message || "Error al iniciar sesión.");
     } finally {
@@ -123,12 +150,19 @@ function App() {
               throw new Error("La contraseña debe tener al menos 4 caracteres.");
           }
 
-          const newUser = await registerUser(registerData);
+          let newUser = await registerUser(registerData);
+          
+          // Check for pending points from QR
+          if (pendingPoints !== null) {
+              const updatedPoints = await processPendingPoints(newUser.id, newUser.points);
+              newUser = { ...newUser, points: updatedPoints };
+          }
+
           setUser(newUser);
           setIsProfileOpen(false);
           setAuthMode('login'); 
           setRegisterData({ name: '', email: '', phone: '', address: '', password: '' });
-          setNotification({ message: "¡Cuenta creada con éxito!", type: 'success' });
+          if (!pendingPoints) setNotification({ message: "¡Cuenta creada con éxito!", type: 'success' });
       } catch (err: any) {
           setAuthError(err.message || "Error al registrarse.");
       } finally {
@@ -189,6 +223,7 @@ function App() {
       setIsProfileOpen(false);
       setIsEditingProfile(false);
       setIsChangingPassword(false);
+      setPendingPoints(null); // Clear pending points on logout
       setAuthError(null);
       setNotification({ message: "Sesión cerrada.", type: 'success' });
   };
@@ -228,6 +263,7 @@ function App() {
               // 1. Logic for Points
               if (qrData.points && typeof qrData.points === 'number') {
                   if (user) {
+                      // Case A: User is logged in -> Add points immediately
                       try {
                           const newTotal = await addPointsToUser(user.id, qrData.points);
                           setUser(prev => prev ? { ...prev, points: newTotal } : null);
@@ -237,7 +273,14 @@ function App() {
                           message += "Error sumando puntos (servidor). ";
                       }
                   } else {
-                      message += `¡QR de ${qrData.points} puntos detectado! Inicia sesión para guardarlos. `;
+                      // Case B: User NOT logged in -> Store pending and force login
+                      setPendingPoints(qrData.points);
+                      setIsProfileOpen(true);
+                      setNotification({ 
+                          message: `¡QR de ${qrData.points} PUNTOS detectado! Inicia sesión para guardarlos.`, 
+                          type: 'success' 
+                      });
+                      return; // Stop execution here to focus on auth
                   }
               }
 
@@ -458,6 +501,17 @@ function App() {
             </div>
 
             <div className="p-6">
+                {/* Pending Points Banner */}
+                {pendingPoints !== null && !user && (
+                    <div className="mb-6 bg-yellow-900/30 border border-yellow-600/50 text-yellow-200 p-4 rounded-xl flex items-center gap-3 animate-pulse">
+                        <div className="text-3xl">🎁</div>
+                        <div className="text-sm">
+                            <p className="font-bold text-yellow-400">¡Tienes {pendingPoints} puntos esperando!</p>
+                            <p className="text-slate-300">Inicia sesión o regístrate ahora para añadirlos a tu cuenta.</p>
+                        </div>
+                    </div>
+                )}
+
                 {/* Visual Error Message */}
                 {authError && (
                     <div className="mb-4 bg-red-900/30 border border-red-900/50 text-red-200 px-3 py-2 rounded text-xs flex items-center gap-2 animate-pulse">
@@ -515,7 +569,7 @@ function App() {
                                 >
                                     {authLoading ? (
                                         <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                    ) : 'Entrar'}
+                                    ) : (pendingPoints ? 'Entrar y Reclamar' : 'Entrar')}
                                 </button>
                             </div>
                         ) : (
@@ -574,7 +628,7 @@ function App() {
                                 >
                                     {authLoading ? (
                                         <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                    ) : 'Crear Cuenta'}
+                                    ) : (pendingPoints ? 'Crear y Reclamar' : 'Crear Cuenta')}
                                 </button>
                             </div>
                         )}
