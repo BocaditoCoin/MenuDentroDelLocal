@@ -334,7 +334,8 @@ export const getCategoriesFromProducts = (products: Product[]): string[] => {
       return s !== 'Otros' &&
              !lower.includes('extra') && 
              lower !== 'salsas' && 
-             lower !== 'ingredientes';
+             lower !== 'ingredientes' &&
+             !lower.includes('canjea'); // Filtrar "Canjea tus Puntos"
   });
   
   return filteredSections.sort((a, b) => {

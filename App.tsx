@@ -431,16 +431,22 @@ function App() {
         ) : (
           /* Categories Accordion */
           <div className="space-y-2">
-            {categories.map(category => (
-              <div key={category} className="bg-slate-800/40 rounded-xl overflow-hidden border border-slate-700/50 backdrop-blur-sm">
+            {categories.map(category => {
+              const isOffers = category.toLowerCase().includes('oferta');
+              return (
+              <div key={category} className={`${isOffers ? 'bg-purple-900/20 border-purple-500/50' : 'bg-slate-800/40 border-slate-700/50'} rounded-xl overflow-hidden border backdrop-blur-sm`}>
                 <button
                   onClick={() => setActiveCategory(activeCategory === category ? null : category)}
-                  className={`w-full px-4 py-3 flex justify-between items-center text-left transition-all ${activeCategory === category ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60 text-cyan-50'}`}
+                  className={`w-full px-4 py-3 flex justify-between items-center text-left transition-all ${
+                    activeCategory === category 
+                      ? (isOffers ? 'bg-purple-800 text-white' : 'bg-slate-800 text-white') 
+                      : (isOffers ? 'hover:bg-purple-900/40 text-purple-200' : 'hover:bg-slate-800/60 text-cyan-50')
+                  }`}
                 >
                   <span className="text-base font-bold">{category}</span>
                   <svg 
                       xmlns="http://www.w3.org/2000/svg" 
-                      className={`h-5 w-5 text-cyan-500 transform transition-transform duration-300 ${activeCategory === category ? 'rotate-180' : ''}`} 
+                      className={`h-5 w-5 transform transition-transform duration-300 ${activeCategory === category ? 'rotate-180' : ''} ${isOffers ? 'text-purple-400' : 'text-cyan-500'}`} 
                       fill="none" 
                       viewBox="0 0 24 24" 
                       stroke="currentColor"
@@ -451,7 +457,7 @@ function App() {
                 
                 {/* Products List within Category */}
                 {activeCategory === category && (
-                  <div className="p-4 space-y-4 bg-slate-900/30 animate-fadeIn">
+                  <div className={`p-4 space-y-4 animate-fadeIn ${isOffers ? 'bg-purple-900/10' : 'bg-slate-900/30'}`}>
                       {filteredProducts.map(product => (
                           <ProductCard 
                             key={product.id} 
@@ -466,7 +472,7 @@ function App() {
                   </div>
                 )}
               </div>
-            ))}
+            )})}
           </div>
         )}
       </main>
@@ -884,79 +890,6 @@ function App() {
             </div>
           </div>
         </div>
-      )}
-
-      {/* PRIVACY POLICY MODAL */}
-      {isPrivacyOpen && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 backdrop-blur-sm p-4 animate-fadeIn">
-              <div className="bg-slate-900 w-full max-w-2xl max-h-[85vh] rounded-2xl border border-slate-700 shadow-2xl flex flex-col">
-                  <div className="p-4 bg-slate-800 flex justify-between items-center border-b border-slate-700">
-                    <h3 className="text-lg font-bold text-white">Política de Privacidad</h3>
-                    <button onClick={() => setIsPrivacyOpen(false)} className="text-slate-400 hover:text-white">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                  </div>
-                  <div className="p-6 overflow-y-auto text-slate-300 text-sm leading-relaxed space-y-4">
-                      <p><strong>Nuestra Política de Privacidad de datos</strong></p>
-                      <p>En Bocadito (Coín, Málaga) nos comprometemos a proteger la privacidad de nuestros clientes. La presente política describe cómo recogemos, utilizamos y protegemos los datos personales de los usuarios de nuestra web, de acuerdo con el Reglamento General de Protección de Datos (RGPD) de la UE. Para cualquier consulta sobre privacidad puede contactar en pasionporlosbocadillos@gmail.com.</p>
-                      
-                      <h4 className="font-bold text-white mt-4">Responsable del tratamiento</h4>
-                      <p>El responsable del tratamiento de los datos es Bocadito, con domicilio en Coín (Málaga). Puede contactar con nosotros en el correo electrónico pasionporlosbocadillos@gmail.com o por teléfono. Somos la persona jurídica que decide los fines y medios del tratamiento de sus datos, y garantizamos el cumplimiento de la normativa de protección de datos.</p>
-
-                      <h4 className="font-bold text-white mt-4">Datos personales que se recogen</h4>
-                      <p>Recogemos los siguientes datos personales de los usuarios, proporcionados directamente por ellos al usar nuestros servicios o contactar con nosotros:</p>
-                      <ul className="list-disc pl-5 space-y-1">
-                          <li>Datos de identificación y contacto: nombre y apellidos, dirección de email, número de teléfono.</li>
-                          <li>Dirección: domicilio o localización para entrega de pedidos (calle, número, CP, población).</li>
-                          <li>Otros datos: cualquier información adicional que el usuario proporcione en mensajes, llamadas o formularios (p.ej. pedidos, preferencias).</li>
-                      </ul>
-                      <p>Estos datos se obtienen a través de distintos medios: el formulario de contacto/pedidos en la web (creado con Google Forms), correos electrónicos, mensajes (por ejemplo WhatsApp) o llamadas telefónicas de clientes. En todos los casos los datos son facilitados voluntariamente por el usuario.</p>
-
-                      <h4 className="font-bold text-white mt-4">Finalidad del tratamiento</h4>
-                      <ul className="list-disc pl-5 space-y-1">
-                          <li>Gestionar pedidos y reservas: procesar las solicitudes de comida para llevar o entrega a domicilio, gestionar la facturación y logística necesaria.</li>
-                          <li>Atención al cliente: responder a consultas y solicitudes de información, quejas o sugerencias recibidas por correo, teléfono o redes sociales.</li>
-                          <li>Comunicaciones comerciales: enviar información sobre nuestros productos, ofertas o promociones solo si el usuario ha dado su consentimiento expreso.</li>
-                          <li>Cumplimiento legal: atender obligaciones fiscales, contables o administrativas derivadas de la actividad del negocio (por ejemplo, emitir facturas).</li>
-                      </ul>
-
-                      <h4 className="font-bold text-white mt-4">Legitimación del tratamiento</h4>
-                      <p>La base legal para tratar sus datos personales se apoya en el artículo 6.1 del RGPD:</p>
-                      <ul className="list-disc pl-5 space-y-1">
-                          <li>Ejecución de contrato (Art.6.1.b): gestionamos sus datos para tramitar pedidos y prestar servicios contratados.</li>
-                          <li>Cumplimiento de obligación legal (Art.6.1.c): podemos tratar datos para cumplir la legislación fiscal y contable.</li>
-                          <li>Consentimiento del interesado (Art.6.1.a): solicitamos su consentimiento explícito para enviar comunicaciones comerciales.</li>
-                          <li>Interés legítimo (Art.6.1.f): en algunos casos legítimos actuamos bajo un interés legítimo de la empresa.</li>
-                      </ul>
-
-                      <h4 className="font-bold text-white mt-4">Destinatarios y transferencias de datos</h4>
-                      <p>Sus datos personales no serán cedidos a terceros ajenos salvo obligación legal. Los principales destinatarios son encargados de tratamiento (proveedores tecnológicos como Google LLC) y autoridades públicas en caso de requerimiento legal.</p>
-
-                      <h4 className="font-bold text-white mt-4">Derechos de los usuarios</h4>
-                      <p>Usted puede ejercer, de manera gratuita, los derechos de acceso, rectificación, supresión, limitación del tratamiento, oposición, portabilidad y retirar el consentimiento. Puede dirigir una solicitud a Bocadito usando el correo pasionporlosbocadillos@gmail.com.</p>
-
-                      <h4 className="font-bold text-white mt-4">Conservación de datos</h4>
-                      <p>Conservaremos sus datos personales solo durante el tiempo necesario para las finalidades indicadas y para cumplir obligaciones legales (p.ej. 5 años para obligaciones tributarias).</p>
-
-                      <h4 className="font-bold text-white mt-4">Seguridad de la información</h4>
-                      <p>Aplicamos medidas técnicas y organizativas adecuadas para proteger sus datos personales de accesos no autorizados, alteraciones o pérdidas, conforme exige el artículo 32 del RGPD (cifrado, contraseñas seguras, etc.).</p>
-
-                      <h4 className="font-bold text-white mt-4">Uso de cookies y herramientas de terceros</h4>
-                      <p>Nuestra web utiliza cookies propias de sesión y de terceros (Google Analytics) para mejorar la experiencia. Al navegar por nuestro sitio, el usuario puede aceptar o rechazar las cookies mediante las opciones de configuración del navegador.</p>
-
-                      <div className="mt-6 pt-4 border-t border-slate-700 text-xs text-slate-500">
-                          <p>Última actualización: mayo 2025.</p>
-                      </div>
-                  </div>
-                  <div className="p-4 bg-slate-800 border-t border-slate-700 flex justify-end">
-                      <button onClick={() => setIsPrivacyOpen(false)} className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 px-6 rounded-lg transition-colors">
-                          Cerrar
-                      </button>
-                  </div>
-              </div>
-          </div>
       )}
 
       {/* Selection Modal (Cart) */}
