@@ -1,15 +1,15 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import ProductCard from './components/ProductCard';
-import Chatbot from './components/Chatbot';
 import QRScanner from './components/QRScanner';
 import { CartItem, Product, Extra, User } from './types';
-import { fetchMenuData, getCategoriesFromProducts, loginUser, registerUser, updateUser, addPointsToUser } from './services/menuService';
+import { fetchMenuData, getCategoriesFromProducts, loginUser, registerUser, updateUser, addPointsToUser, fetchAppLogo } from './services/menuService';
 
 function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [extras, setExtras] = useState<Extra[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   
   // Auth & Cart State
   const [user, setUser] = useState<User | null>(null);
@@ -25,6 +25,7 @@ function App() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSelectionOpen, setIsSelectionOpen] = useState(false);
   const [isQRScannerOpen, setIsQRScannerOpen] = useState(false);
+  const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
   const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
   
   // Layout State
@@ -50,11 +51,16 @@ function App() {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ new: '', confirm: '' });
 
-  // Fetch Menu Data
+  // Fetch Menu Data & Logo
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
+        // Cargar logo en paralelo
+        fetchAppLogo().then(url => {
+            if (url) setLogoUrl(url);
+        });
+
         const { products: fetchedProducts, extras: fetchedExtras } = await fetchMenuData();
         setProducts(fetchedProducts);
         setExtras(fetchedExtras);
@@ -253,17 +259,14 @@ function App() {
       setIsQRScannerOpen(false);
 
       // Attempt to parse as JSON (Special Promo QR)
-      // Format: { "points": 50, "products": ["id1", "id2"], "action": "promo" }
       try {
           const qrData = JSON.parse(decodedText);
           
           if (typeof qrData === 'object' && qrData !== null) {
               let message = "";
               
-              // 1. Logic for Points
               if (qrData.points && typeof qrData.points === 'number') {
                   if (user) {
-                      // Case A: User is logged in -> Add points immediately
                       try {
                           const newTotal = await addPointsToUser(user.id, qrData.points);
                           setUser(prev => prev ? { ...prev, points: newTotal } : null);
@@ -273,7 +276,6 @@ function App() {
                           message += "Error sumando puntos (servidor). ";
                       }
                   } else {
-                      // Case B: User NOT logged in -> Store pending and force login
                       setPendingPoints(qrData.points);
                       setIsProfileOpen(true);
                       setNotification({ 
@@ -284,7 +286,6 @@ function App() {
                   }
               }
 
-              // 2. Logic for Products
               if (Array.isArray(qrData.products)) {
                   let addedCount = 0;
                   qrData.products.forEach((prodId: string) => {
@@ -310,15 +311,13 @@ function App() {
 
               if (message) {
                   setNotification({ message, type: 'success' });
-                  return; // Stop here if it was a JSON promo
+                  return;
               }
           }
       } catch (e) {
-          // Not JSON, continue to table logic
-          // console.log("Not JSON, treating as string");
+          // Not JSON
       }
 
-      // --- Default Logic: Table Identification ---
       let scannedTableId = decodedText;
       try {
           if (decodedText.startsWith('http')) {
@@ -347,7 +346,7 @@ function App() {
   }, [activeCategory, products]);
 
   return (
-    <div className="min-h-screen pb-24 relative bg-slate-900">
+    <div className="min-h-screen pb-0 relative bg-slate-900 flex flex-col">
       
       {/* Toast Notification */}
       {notification && (
@@ -359,19 +358,19 @@ function App() {
 
       {/* Navbar */}
       <nav className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 px-4 py-3 flex justify-between items-center shadow-lg">
-        <div className="flex flex-col">
-            <h1 className="text-xl font-bold text-white tracking-tight">
-            BOCAD<span className="text-cyan-500">I</span>TO
-            </h1>
+        <div className="flex flex-col justify-center">
+            {logoUrl ? (
+                <img src={logoUrl} alt="Bocadito" className="h-10 object-contain w-auto max-w-[150px]" />
+            ) : (
+                <h1 className="text-xl font-bold text-white tracking-tight">
+                    BOCAD<span className="text-cyan-500">I</span>TO
+                </h1>
+            )}
             {tableId ? (
-                <span className="text-[10px] text-green-400 font-mono tracking-widest border border-green-900/50 bg-green-900/20 px-1 rounded w-fit animate-pulse">
+                <span className="text-[10px] text-green-400 font-mono tracking-widest border border-green-900/50 bg-green-900/20 px-1 rounded w-fit animate-pulse mt-1">
                     MESA {tableId}
                 </span>
-            ) : (
-                <span className="text-[10px] text-slate-500 font-mono tracking-widest">
-                    SIN MESA
-                </span>
-            )}
+            ) : null}
         </div>
         
         <div className="flex items-center gap-3">
@@ -415,12 +414,9 @@ function App() {
       </nav>
 
       {/* Main Content */}
-      <main className="max-w-4xl mx-auto p-4">
+      <main className="flex-1 w-full max-w-4xl mx-auto p-4 pb-20">
         <div className="mb-6 text-center">
-             <p className="text-cyan-400 text-sm font-semibold uppercase tracking-wider mb-1">
-                 {tableId ? `Estás en la Mesa ${tableId}` : 'Bienvenido a Bocadito'}
-             </p>
-             <h2 className="text-2xl font-bold text-white">Consulta nuestra Carta</h2>
+             <h2 className="text-2xl font-bold text-white mt-4">Consulta nuestra Carta</h2>
              <p className="text-slate-400 text-xs mt-2">
                  {user ? `Hola, ${user.name}` : 'La identificación es opcional. Regístrate para acumular puntos.'}
              </p>
@@ -474,6 +470,90 @@ function App() {
           </div>
         )}
       </main>
+
+      {/* FOOTER - Replicating Image Design */}
+      <footer className="bg-slate-900 border-t border-slate-800 mt-auto">
+         <div className="max-w-4xl mx-auto p-4 md:p-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 bg-slate-800/30 rounded-2xl p-4 border border-slate-700">
+               {/* Mapa / Info Izquierda */}
+               <div className="flex flex-col gap-4">
+                  <div className="rounded-xl overflow-hidden border border-slate-600 h-48 relative bg-slate-800 group cursor-pointer">
+                      {/* Placeholder de Mapa interactivo simulado */}
+                      <a href="https://www.google.com/maps/search/?api=1&query=Pl.+de+la+Alameda,+22,+29100+Co%C3%ADn,+M%C3%A1laga" target="_blank" rel="noopener noreferrer">
+                         <img 
+                           src="https://media.wired.com/photos/59269cd37034dc5f91becd64/master/w_2560%2Cc_limit/GoogleMapTA.jpg" 
+                           alt="Mapa Coín" 
+                           className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity"
+                         />
+                         <div className="absolute top-4 left-4 bg-white text-slate-900 p-3 rounded shadow-lg max-w-[200px]">
+                            <p className="font-bold text-sm">Pl. de la Alameda, 22</p>
+                            <p className="text-xs text-slate-600">29100 Coín, Málaga</p>
+                            <p className="text-xs text-blue-600 mt-1 hover:underline">Ampliar el mapa</p>
+                         </div>
+                      </a>
+                  </div>
+               </div>
+
+               {/* Horarios Derecha */}
+               <div className="flex flex-col justify-center text-slate-300 text-sm">
+                   <h3 className="font-bold text-white text-lg mb-2">En la Plaza Alameda Nº22 de Coín, junto al ayuntamiento.</h3>
+                   <p className="text-cyan-400 font-semibold mb-4">¡También tenemos reparto a domicilio todos los días!</p>
+                   
+                   <div className="bg-slate-900/80 rounded-xl p-4 border border-slate-700">
+                       <h4 className="text-cyan-500 font-bold mb-3 uppercase text-xs tracking-wider">Nuestro Horario</h4>
+                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                           <div>
+                               <p className="font-bold text-white mb-1">Horario Verano</p>
+                               <div className="flex justify-between"><span className="text-slate-400">Lunes-Jueves:</span> <span>20:00-23:30</span></div>
+                               <div className="flex justify-between"><span className="text-slate-400">Viernes-Domingo:</span> <span>20:00-24:00</span></div>
+                           </div>
+                           <div>
+                               <p className="font-bold text-white mb-1">Horario Invierno</p>
+                               <div className="flex justify-between"><span className="text-slate-400">Lunes-Jueves:</span> <span>20:00-23:00</span></div>
+                               <div className="flex justify-between"><span className="text-slate-400">Viernes-Domingo:</span> <span>20:00-23:30</span></div>
+                           </div>
+                       </div>
+                       <div className="mt-3 pt-3 border-t border-slate-800 flex justify-between items-center">
+                           <span className="font-bold text-white text-xs">Horario Reparto:</span>
+                           <div className="text-right">
+                               <p className="text-cyan-400 font-bold text-xs">Todos los Días</p>
+                               <p className="text-white text-xs">20:00 a 23:00</p>
+                           </div>
+                       </div>
+                   </div>
+                   <p className="mt-4 text-xs italic text-slate-500">Irresistibles roscas, jugosas hamburguesas, y frescas ensaladas, hasta nuestras increíbles salsas caseras como la brava.</p>
+               </div>
+            </div>
+
+            {/* Links Buttons */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <a href="https://sites.google.com/view/coin-bocadito/pasi%C3%B3n-por-los-bocadillos?authuser=0" target="_blank" rel="noopener noreferrer" className="block text-center border border-slate-600 hover:border-cyan-500 hover:text-cyan-400 text-white py-3 rounded-lg transition-colors font-medium">
+                    Inicio
+                </a>
+                <a href="https://www.instagram.com/coin.bocadito?utm_source=qr" target="_blank" rel="noopener noreferrer" className="block text-center border border-slate-600 hover:border-pink-500 hover:text-pink-400 text-white py-3 rounded-lg transition-colors font-medium">
+                    Instagram
+                </a>
+                <a href="https://www.facebook.com/p/Bocadito-61572216308073/" target="_blank" rel="noopener noreferrer" className="block text-center border border-slate-600 hover:border-blue-500 hover:text-blue-400 text-white py-3 rounded-lg transition-colors font-medium">
+                    Facebook
+                </a>
+                <a href="https://share.google/ewigyqIE1WoZ6ER5a" target="_blank" rel="noopener noreferrer" className="block text-center border border-slate-600 hover:border-green-500 hover:text-green-400 text-white py-3 rounded-lg transition-colors font-medium">
+                    Google
+                </a>
+            </div>
+
+            <div className="mt-8 text-center border-t border-slate-800 pt-6 flex flex-col items-center gap-2">
+                 <button 
+                    onClick={() => setIsPrivacyOpen(true)}
+                    className="text-cyan-600 hover:text-cyan-400 text-sm font-semibold underline decoration-cyan-900 underline-offset-4"
+                 >
+                     Consulta la política completa aquí
+                 </button>
+                 <p className="text-[10px] text-slate-600">
+                     En Bocadito solo recogemos los datos necesarios (nombre, email, teléfono y dirección) cuando haces un pedido o nos contactas.
+                 </p>
+            </div>
+         </div>
+      </footer>
 
       {/* QR Scanner Modal */}
       {isQRScannerOpen && (
@@ -798,6 +878,79 @@ function App() {
         </div>
       )}
 
+      {/* PRIVACY POLICY MODAL */}
+      {isPrivacyOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 backdrop-blur-sm p-4 animate-fadeIn">
+              <div className="bg-slate-900 w-full max-w-2xl max-h-[85vh] rounded-2xl border border-slate-700 shadow-2xl flex flex-col">
+                  <div className="p-4 bg-slate-800 flex justify-between items-center border-b border-slate-700">
+                    <h3 className="text-lg font-bold text-white">Política de Privacidad</h3>
+                    <button onClick={() => setIsPrivacyOpen(false)} className="text-slate-400 hover:text-white">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                  </div>
+                  <div className="p-6 overflow-y-auto text-slate-300 text-sm leading-relaxed space-y-4">
+                      <p><strong>Nuestra Política de Privacidad de datos</strong></p>
+                      <p>En Bocadito (Coín, Málaga) nos comprometemos a proteger la privacidad de nuestros clientes. La presente política describe cómo recogemos, utilizamos y protegemos los datos personales de los usuarios de nuestra web, de acuerdo con el Reglamento General de Protección de Datos (RGPD) de la UE. Para cualquier consulta sobre privacidad puede contactar en pasionporlosbocadillos@gmail.com.</p>
+                      
+                      <h4 className="font-bold text-white mt-4">Responsable del tratamiento</h4>
+                      <p>El responsable del tratamiento de los datos es Bocadito, con domicilio en Coín (Málaga). Puede contactar con nosotros en el correo electrónico pasionporlosbocadillos@gmail.com o por teléfono. Somos la persona jurídica que decide los fines y medios del tratamiento de sus datos, y garantizamos el cumplimiento de la normativa de protección de datos.</p>
+
+                      <h4 className="font-bold text-white mt-4">Datos personales que se recogen</h4>
+                      <p>Recogemos los siguientes datos personales de los usuarios, proporcionados directamente por ellos al usar nuestros servicios o contactar con nosotros:</p>
+                      <ul className="list-disc pl-5 space-y-1">
+                          <li>Datos de identificación y contacto: nombre y apellidos, dirección de email, número de teléfono.</li>
+                          <li>Dirección: domicilio o localización para entrega de pedidos (calle, número, CP, población).</li>
+                          <li>Otros datos: cualquier información adicional que el usuario proporcione en mensajes, llamadas o formularios (p.ej. pedidos, preferencias).</li>
+                      </ul>
+                      <p>Estos datos se obtienen a través de distintos medios: el formulario de contacto/pedidos en la web (creado con Google Forms), correos electrónicos, mensajes (por ejemplo WhatsApp) o llamadas telefónicas de clientes. En todos los casos los datos son facilitados voluntariamente por el usuario.</p>
+
+                      <h4 className="font-bold text-white mt-4">Finalidad del tratamiento</h4>
+                      <ul className="list-disc pl-5 space-y-1">
+                          <li>Gestionar pedidos y reservas: procesar las solicitudes de comida para llevar o entrega a domicilio, gestionar la facturación y logística necesaria.</li>
+                          <li>Atención al cliente: responder a consultas y solicitudes de información, quejas o sugerencias recibidas por correo, teléfono o redes sociales.</li>
+                          <li>Comunicaciones comerciales: enviar información sobre nuestros productos, ofertas o promociones solo si el usuario ha dado su consentimiento expreso.</li>
+                          <li>Cumplimiento legal: atender obligaciones fiscales, contables o administrativas derivadas de la actividad del negocio (por ejemplo, emitir facturas).</li>
+                      </ul>
+
+                      <h4 className="font-bold text-white mt-4">Legitimación del tratamiento</h4>
+                      <p>La base legal para tratar sus datos personales se apoya en el artículo 6.1 del RGPD:</p>
+                      <ul className="list-disc pl-5 space-y-1">
+                          <li>Ejecución de contrato (Art.6.1.b): gestionamos sus datos para tramitar pedidos y prestar servicios contratados.</li>
+                          <li>Cumplimiento de obligación legal (Art.6.1.c): podemos tratar datos para cumplir la legislación fiscal y contable.</li>
+                          <li>Consentimiento del interesado (Art.6.1.a): solicitamos su consentimiento explícito para enviar comunicaciones comerciales.</li>
+                          <li>Interés legítimo (Art.6.1.f): en algunos casos legítimos actuamos bajo un interés legítimo de la empresa.</li>
+                      </ul>
+
+                      <h4 className="font-bold text-white mt-4">Destinatarios y transferencias de datos</h4>
+                      <p>Sus datos personales no serán cedidos a terceros ajenos salvo obligación legal. Los principales destinatarios son encargados de tratamiento (proveedores tecnológicos como Google LLC) y autoridades públicas en caso de requerimiento legal.</p>
+
+                      <h4 className="font-bold text-white mt-4">Derechos de los usuarios</h4>
+                      <p>Usted puede ejercer, de manera gratuita, los derechos de acceso, rectificación, supresión, limitación del tratamiento, oposición, portabilidad y retirar el consentimiento. Puede dirigir una solicitud a Bocadito usando el correo pasionporlosbocadillos@gmail.com.</p>
+
+                      <h4 className="font-bold text-white mt-4">Conservación de datos</h4>
+                      <p>Conservaremos sus datos personales solo durante el tiempo necesario para las finalidades indicadas y para cumplir obligaciones legales (p.ej. 5 años para obligaciones tributarias).</p>
+
+                      <h4 className="font-bold text-white mt-4">Seguridad de la información</h4>
+                      <p>Aplicamos medidas técnicas y organizativas adecuadas para proteger sus datos personales de accesos no autorizados, alteraciones o pérdidas, conforme exige el artículo 32 del RGPD (cifrado, contraseñas seguras, etc.).</p>
+
+                      <h4 className="font-bold text-white mt-4">Uso de cookies y herramientas de terceros</h4>
+                      <p>Nuestra web utiliza cookies propias de sesión y de terceros (Google Analytics) para mejorar la experiencia. Al navegar por nuestro sitio, el usuario puede aceptar o rechazar las cookies mediante las opciones de configuración del navegador.</p>
+
+                      <div className="mt-6 pt-4 border-t border-slate-700 text-xs text-slate-500">
+                          <p>Última actualización: mayo 2025.</p>
+                      </div>
+                  </div>
+                  <div className="p-4 bg-slate-800 border-t border-slate-700 flex justify-end">
+                      <button onClick={() => setIsPrivacyOpen(false)} className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 px-6 rounded-lg transition-colors">
+                          Cerrar
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
       {/* Selection Modal (Cart) */}
       {isSelectionOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm sm:p-4 animate-fadeIn">
@@ -897,7 +1050,7 @@ function App() {
       )}
 
       {/* Floating Action Button */}
-      {!isSelectionOpen && cart.length > 0 && !isProfileOpen && !isQRScannerOpen && (
+      {!isSelectionOpen && cart.length > 0 && !isProfileOpen && !isQRScannerOpen && !isPrivacyOpen && (
         <div className="fixed bottom-4 left-4 right-4 z-40 md:w-96 md:left-auto md:right-24 animate-slideUp">
             <button 
                 onClick={() => setIsSelectionOpen(true)}
@@ -913,14 +1066,6 @@ function App() {
             </button>
         </div>
       )}
-
-      <Chatbot 
-        onAddProduct={addToCart} 
-        products={products} 
-        extras={extras} 
-        userName={user?.name} 
-        userId={user?.id}
-      />
     </div>
   );
 }

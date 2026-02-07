@@ -6,6 +6,7 @@ const BASEROW_TOKEN = "vZlkbz5gL9rL8J0eeuOZVDedcQ9oik3M";
 const TABLE_CARTA_ID = "420254";
 const TABLE_BEBIDAS_ID = "736213";
 const TABLE_CLIENTES_ID = "420235";
+const TABLE_ALMACEN_ID = "750087"; // Nueva tabla para el logo
 const BASE_URL = "https://api.baserow.io/api/database/rows/table/";
 
 interface BaserowCartaRow {
@@ -186,6 +187,34 @@ export const addPointsToUser = async (userId: string, pointsToAdd: number): Prom
     return newTotal;
 };
 
+/**
+ * --- LOGO SERVICE ---
+ */
+export const fetchAppLogo = async (): Promise<string | null> => {
+    try {
+        // Filtramos por el nombre exacto "Logotipo Horizontal" en la tabla de Almacén
+        const url = `${BASE_URL}${TABLE_ALMACEN_ID}/?user_field_names=false&filter__field_6328433__equal=Logotipo%20Horizontal`;
+        
+        const response = await fetch(url, {
+            headers: { Authorization: `Token ${BASEROW_TOKEN}` }
+        });
+
+        if (!response.ok) return null;
+
+        const data = await response.json();
+        if (data.results && data.results.length > 0) {
+            // El campo de imagen es field_7066215 (array)
+            const images = data.results[0].field_7066215;
+            if (Array.isArray(images) && images.length > 0) {
+                return images[0].url;
+            }
+        }
+        return null;
+    } catch (e) {
+        console.error("Error fetching logo:", e);
+        return null;
+    }
+};
 
 /**
  * --- MENU SERVICES ---
