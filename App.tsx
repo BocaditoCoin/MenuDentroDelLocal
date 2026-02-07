@@ -478,19 +478,27 @@ function App() {
                {/* Mapa / Info Izquierda */}
                <div className="flex flex-col gap-4">
                   <div className="rounded-xl overflow-hidden border border-slate-600 h-48 relative bg-slate-800 group cursor-pointer">
-                      {/* Placeholder de Mapa interactivo simulado */}
-                      <a href="https://www.google.com/maps/search/?api=1&query=Pl.+de+la+Alameda,+22,+29100+Co%C3%ADn,+M%C3%A1laga" target="_blank" rel="noopener noreferrer">
-                         <img 
-                           src="https://media.wired.com/photos/59269cd37034dc5f91becd64/master/w_2560%2Cc_limit/GoogleMapTA.jpg" 
-                           alt="Mapa Coín" 
-                           className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity"
-                         />
-                         <div className="absolute top-4 left-4 bg-white text-slate-900 p-3 rounded shadow-lg max-w-[200px]">
-                            <p className="font-bold text-sm">Pl. de la Alameda, 22</p>
-                            <p className="text-xs text-slate-600">29100 Coín, Málaga</p>
-                            <p className="text-xs text-blue-600 mt-1 hover:underline">Ampliar el mapa</p>
-                         </div>
-                      </a>
+                      <iframe 
+                        width="100%" 
+                        height="100%" 
+                        style={{ border: 0 }}
+                        src="https://maps.google.com/maps?q=Pl.+de+la+Alameda,+22,+29100+Co%C3%ADn,+M%C3%A1laga&t=&z=15&ie=UTF8&iwloc=&output=embed"
+                        className="w-full h-full opacity-80 group-hover:opacity-100 transition-opacity"
+                        title="Ubicación Bocadito"
+                        loading="lazy"
+                      ></iframe>
+                      
+                      {/* Overlay Card - keeping it as it adds style and the click action on the iframe might be captured by the map interaction */}
+                      <a 
+                        href="https://www.google.com/maps/search/?api=1&query=Pl.+de+la+Alameda,+22,+29100+Co%C3%ADn,+M%C3%A1laga" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="absolute top-4 left-4 bg-white text-slate-900 p-3 rounded shadow-lg max-w-[200px] z-10 hover:bg-slate-50 transition-colors"
+                      >
+                        <p className="font-bold text-sm">Pl. de la Alameda, 22</p>
+                        <p className="text-xs text-slate-600">29100 Coín, Málaga</p>
+                        <p className="text-xs text-blue-600 mt-1 hover:underline">Ampliar el mapa</p>
+                     </a>
                   </div>
                </div>
 
