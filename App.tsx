@@ -4,6 +4,8 @@ import QRScanner from './components/QRScanner';
 import { CartItem, Product, Extra, User } from './types';
 import { fetchMenuData, getCategoriesFromProducts, loginUser, registerUser, updateUser, addPointsToUser, fetchAppLogo } from './services/menuService';
 
+const SESSION_KEY = 'BOCADITO_SESSION_V1';
+
 function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [extras, setExtras] = useState<Extra[]>([]);
@@ -12,7 +14,17 @@ function App() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   
   // Auth & Cart State
-  const [user, setUser] = useState<User | null>(null);
+  // Inicialización Lazy: Intentar leer del localStorage al inicio
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const savedUser = localStorage.getItem(SESSION_KEY);
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch (error) {
+      console.error("Error recuperando sesión", error);
+      return null;
+    }
+  });
+  
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
@@ -50,6 +62,35 @@ function App() {
   
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ new: '', confirm: '' });
+
+  // EFFECT: Sincronizar usuario con LocalStorage cada vez que cambie
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(SESSION_KEY);
+    }
+  }, [user]);
+
+  // EFFECT: Refrescar datos del usuario (puntos, etc) al iniciar la app si hay sesión
+  useEffect(() => {
+    const refreshUserData = async () => {
+      if (user && user.email && user.password) {
+        try {
+          // Actualización silenciosa de los datos más recientes del servidor
+          const freshUser = await loginUser(user.email, user.password);
+          // Solo actualizamos si hay cambios relevantes (ej: puntos) para evitar renders innecesarios
+          if (freshUser.points !== user.points || freshUser.name !== user.name) {
+             setUser(prev => prev ? { ...prev, ...freshUser } : freshUser);
+          }
+        } catch (e) {
+          console.warn("No se pudo refrescar la sesión en segundo plano:", e);
+          // Opcional: Si la contraseña cambió o el usuario fue borrado, podríamos forzar logout aquí
+        }
+      }
+    };
+    refreshUserData();
+  }, []); // Se ejecuta solo una vez al montar el componente
 
   // Fetch Menu Data & Logo
   useEffect(() => {
@@ -419,6 +460,9 @@ function App() {
              <h2 className="text-2xl font-bold text-white mt-4">Consulta nuestra Carta</h2>
              <p className="text-slate-400 text-xs mt-2">
                  {user ? `Hola, ${user.name}` : 'La identificación es opcional. Regístrate para acumular puntos.'}
+             </p>
+             <p className="text-cyan-300 text-xs mt-1">
+                 Inicia sesión, y escanea el qr en papel de tu mesa para ganas puntos
              </p>
         </div>
 
