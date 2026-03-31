@@ -316,7 +316,7 @@ export const fetchMenuData = async (): Promise<MenuResponse> => {
 export const getCategoriesFromProducts = (products: Product[]): string[] => {
   const priorityOrder = [
     'Ensaladas', 'Ensalada',
-    'Entrantes', 'Entrante',
+    'Picoteo',
     'Camperos', 'Campero',
     'Bocadillos', 'Bocadillo',
     'Hamburguesas', 'Hamburguesa',

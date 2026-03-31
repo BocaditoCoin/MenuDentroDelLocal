@@ -82,14 +82,14 @@ export const MENU_DATA: Product[] = [
     extrasAllowed: true,
   },
 
-  // --- Entrantes ---
+  // --- Picoteo ---
   {
     id: 'ent_1',
     name: 'Patatas Bravas',
-    type: 'Entrante',
+    type: 'Picoteo',
     ingredients: 'Patatas cortadas a mano con nuestra salsa brava casera picante',
     priceNormal: 4.50,
-    section: 'Entrantes',
+    section: 'Picoteo',
     image: 'https://images.unsplash.com/photo-1541592398-3563a5624eb1?auto=format&fit=crop&w=600&q=80',
     points: 5,
     extrasAllowed: true,
@@ -97,10 +97,10 @@ export const MENU_DATA: Product[] = [
   {
     id: 'ent_2',
     name: 'Croquetas de Jamón (6 uds)',
-    type: 'Entrante',
+    type: 'Picoteo',
     ingredients: 'Croquetas caseras cremosas de jamón ibérico',
     priceNormal: 5.50,
-    section: 'Entrantes',
+    section: 'Picoteo',
     image: 'https://images.unsplash.com/photo-1615870216519-2f9fa575fa5c?auto=format&fit=crop&w=600&q=80',
     points: 8,
     extrasAllowed: false,
@@ -108,10 +108,10 @@ export const MENU_DATA: Product[] = [
   {
     id: 'ent_4',
     name: 'Nachos con Queso',
-    type: 'Entrante',
+    type: 'Picoteo',
     ingredients: 'Totopos de maíz bañados en cheddar fundido, guacamole y jalapeños',
     priceNormal: 7.00,
-    section: 'Entrantes',
+    section: 'Picoteo',
     image: 'https://images.unsplash.com/photo-1513456852971-30c0b8199d4d?auto=format&fit=crop&w=600&q=80',
     points: 10,
     extrasAllowed: true,
@@ -119,10 +119,10 @@ export const MENU_DATA: Product[] = [
   {
     id: 'ent_5',
     name: 'Fingers de Pollo',
-    type: 'Entrante',
+    type: 'Picoteo',
     ingredients: 'Tiras de pechuga de pollo empanadas al estilo cajún con salsa de miel y mostaza',
     priceNormal: 6.50,
-    section: 'Entrantes',
+    section: 'Picoteo',
     image: 'https://images.unsplash.com/photo-1562967914-608f82629710?auto=format&fit=crop&w=600&q=80',
     points: 9,
     extrasAllowed: true,
