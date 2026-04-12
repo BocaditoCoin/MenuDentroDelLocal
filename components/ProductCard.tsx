@@ -80,7 +80,12 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAdd, availableExtr
       <div className="p-4 flex-1 flex flex-col justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2 mb-2">
-            <h3 className="text-xl font-bold text-white">{product.name}</h3>
+            <h3 className={`text-xl font-bold ${product.name?.includes('AGOTADO') ? 'text-red-400' : 'text-white'}`}>{product.name?.replace('⚠️ ', '')}</h3>
+            {product.name?.includes('AGOTADO') && (
+              <span className="bg-red-900/40 text-red-300 text-xs font-bold px-2 py-0.5 rounded border border-red-500/50">
+                🚫 NO DISPONIBLE HOY
+              </span>
+            )}
             {/* Display Day/Type for Offers */}
             {isOffer && (
                 <span className="bg-yellow-900/40 text-yellow-300 text-xs font-bold px-2 py-0.5 rounded border border-yellow-500/50 flex items-center gap-1">
