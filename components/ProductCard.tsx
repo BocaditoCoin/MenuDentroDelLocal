@@ -89,8 +89,8 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAdd, availableExtr
             )}
           </div>
           {product.ingredients?.includes('⚠️ SOLO BOCADILLO') && (
-            <div className="mb-2 px-3 py-1.5 bg-orange-600/20 border border-orange-500/50 rounded text-orange-400 text-sm font-bold text-center animate-pulse">
-              🥖 SOLO EN BOCADILLO (sin pan campero)
+            <div className="mb-2 px-3 py-1.5 bg-orange-600/20 border border-orange-500/50 rounded text-orange-400 text-sm font-bold text-center">
+              🥖 Solo por hoy en bocadillo (sin pan campero por falta de existencias)
             </div>
           )}
           <p className="text-slate-400 text-sm mb-4 leading-relaxed line-clamp-2 md:line-clamp-none">
