@@ -61,7 +61,7 @@ function App() {
   const [editData, setEditData] = useState<Partial<User>>({});
   
   const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [passwordForm, setPasswordForm] = useState({ new: '', confirm: '' });
+  const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' });
 
   // EFFECT: Sincronizar usuario con LocalStorage cada vez que cambie
   useEffect(() => {
@@ -218,50 +218,57 @@ function App() {
   };
 
   const handleUpdateProfile = async () => {
-      if (user) {
-          setAuthError(null);
-          setAuthLoading(true);
-          try {
-              const updatedUser = await updateUser(user.id, editData);
-              setUser(updatedUser);
-              setIsEditingProfile(false);
-              setNotification({ message: "Perfil actualizado.", type: 'success' });
-          } catch (err: any) {
-              setAuthError(err.message || "Error al actualizar perfil.");
-          } finally {
-              setAuthLoading(false);
-          }
+      if (!user) return;
+      setAuthError(null);
+      if (!editData.name?.trim() || !editData.phone?.trim()) {
+          setAuthError("El nombre y el teléfono son obligatorios.");
+          return;
+      }
+      setAuthLoading(true);
+      try {
+          const updatedUser = await updateUser(user.id, {
+              name: editData.name.trim(),
+              phone: editData.phone.trim(),
+              address: (editData.address || '').trim()
+          });
+          setUser(updatedUser);
+          setIsEditingProfile(false);
+          setNotification({ message: "Perfil actualizado correctamente.", type: 'success' });
+      } catch (err: any) {
+          setAuthError(err.message || "No se pudieron guardar los datos. Inténtalo de nuevo.");
+      } finally {
+          setAuthLoading(false);
       }
   };
 
   const handleChangePassword = async () => {
-      if (!passwordForm.new || !passwordForm.confirm) {
-          setAuthError("Por favor rellena ambos campos.");
+      if (!passwordForm.current || !passwordForm.new || !passwordForm.confirm) {
+          setAuthError("Introduce tu contraseña actual y los dos campos de la nueva contraseña.");
           return;
       }
       if (passwordForm.new !== passwordForm.confirm) {
-          setAuthError("Las contraseñas no coinciden.");
+          setAuthError("Las nuevas contraseñas no coinciden.");
           return;
       }
       if (passwordForm.new.length < 4) {
-          setAuthError("La contraseña debe tener al menos 4 caracteres.");
+          setAuthError("La nueva contraseña debe tener al menos 4 caracteres.");
           return;
       }
-      
-      if (user) {
-          setAuthError(null);
-          setAuthLoading(true);
-          try {
-              const updatedUser = await updateUser(user.id, { password: passwordForm.new });
-              setUser(updatedUser);
-              setIsChangingPassword(false);
-              setPasswordForm({ new: '', confirm: '' });
-              setNotification({ message: "Contraseña cambiada.", type: 'success' });
-          } catch (err: any) {
-              setAuthError(err.message || "Error al cambiar la contraseña.");
-          } finally {
-              setAuthLoading(false);
-          }
+
+      if (!user) return;
+      setAuthError(null);
+      setAuthLoading(true);
+      try {
+          await loginUser(user.email, passwordForm.current);
+          const updatedUser = await updateUser(user.id, { password: passwordForm.new });
+          setUser(updatedUser);
+          setIsChangingPassword(false);
+          setPasswordForm({ current: '', new: '', confirm: '' });
+          setNotification({ message: "Contraseña cambiada correctamente.", type: 'success' });
+      } catch (err: any) {
+          setAuthError(err.message || "No se pudo cambiar la contraseña.");
+      } finally {
+          setAuthLoading(false);
       }
   };
 
@@ -876,8 +883,17 @@ function App() {
                                         <p className="text-[10px] text-slate-400 mb-3">Introduce tu nueva contraseña dos veces para confirmar.</p>
                                         
                                         <div className="space-y-3">
+                                            <input
+                                                type="password"
+                                                autoComplete="current-password"
+                                                placeholder="Contraseña actual"
+                                                className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-white text-sm"
+                                                value={passwordForm.current}
+                                                onChange={e => setPasswordForm({...passwordForm, current: e.target.value})}
+                                            />
                                             <input 
                                                 type="password"
+                                                autoComplete="new-password"
                                                 placeholder="Nueva Contraseña"
                                                 className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-white text-sm"
                                                 value={passwordForm.new}
@@ -892,7 +908,7 @@ function App() {
                                             />
                                             <div className="flex gap-2 pt-2">
                                                 <button 
-                                                    onClick={() => { setIsChangingPassword(false); setPasswordForm({new:'', confirm:''}); setAuthError(null); }} 
+                                                    onClick={() => { setIsChangingPassword(false); setPasswordForm({current:'', new:'', confirm:''}); setAuthError(null); }} 
                                                     className="flex-1 bg-slate-700 text-xs py-2 rounded text-white"
                                                 >
                                                     Cancelar
